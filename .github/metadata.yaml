@@ -1,0 +1,8 @@
+description: "A cache of bytes in a directory for Swift: one file an entry under a digest key, written whole, where any entry that is not whole and of its key is a miss."
+topics:
+  - compositions
+  - cache
+  - file-system
+homepage: "https://swift-institute.org"
+readme:
+  family: E
