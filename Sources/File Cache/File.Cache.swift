@@ -92,7 +92,7 @@ extension File.Cache {
         number(format, into: &entry)
         entry.append(contentsOf: key.digest.bytes)
         number(UInt64(payload.count), into: &entry)
-        number(UInt64(RFC_1950.Adler32.checksum(payload)), into: &entry)
+        number(UInt64(IETF.RFC.`1950`.Adler32.checksum(payload)), into: &entry)
         entry.append(contentsOf: payload)
         return entry
     }
@@ -108,7 +108,7 @@ extension File.Cache {
             number(entry, at: 16 + digest.count) == UInt64(entry.count - header)
         else { return nil }
         let payload = Array(entry[header...])
-        guard number(entry, at: 24 + digest.count) == UInt64(RFC_1950.Adler32.checksum(payload)) else { return nil }
+        guard number(entry, at: 24 + digest.count) == UInt64(IETF.RFC.`1950`.Adler32.checksum(payload)) else { return nil }
         return payload
     }
 }
