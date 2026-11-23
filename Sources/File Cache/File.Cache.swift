@@ -11,8 +11,17 @@ extension File {
         /// Where the entries are kept; made when the first is kept.
         public let directory: File.Directory
 
-        public init(_ directory: File.Directory) {
+        /// The most bytes the entries' files may hold together before the least recently used are removed, or nil
+        /// to remove none.
+        public let limit: Int?
+
+        /// What this value and its copies know of the bytes the entries hold.
+        let ledger: Ledger
+
+        public init(_ directory: File.Directory, limit: Int? = nil) {
             self.directory = directory
+            self.limit = limit
+            self.ledger = Ledger()
         }
     }
 }
@@ -22,11 +31,14 @@ extension File.Cache {
     /// key.
     public func bytes(for key: Key) -> [Byte]? {
         guard let file = file(for: key) else { return nil }
+        let payload: [Byte]?
         do throws(File.System.Read.Full.Error) {
-            return Self.payload(try file.read.bytes(), key: key)
+            payload = Self.payload(try file.read.bytes(), key: key)
         } catch {
             return nil
         }
+        if payload != nil { Self.used(file) }
+        return payload
     }
 
     /// Keeps bytes under a key, replacing what was there: written whole under a temporary name, then renamed into
@@ -44,6 +56,7 @@ extension File.Cache {
         } catch {
             throw .write(error)
         }
+        if let limit { ledger.kept(entry.count, within: limit, in: self) }
     }
 
     /// The entry's file: its key in hex, then `.entry`.

@@ -139,4 +139,20 @@ import Testing
             #expect(try Self.names(directory) == [key.hex + ".entry"])
         }
     }
+
+    @Test func `past its limit a cache removes the least recently kept or read entries, down to nine tenths of it`() throws {
+        try Self.temporary { directory in
+            let entry = Self.payload.count + 64
+            let cache = File.Cache(directory, limit: entry * 7 / 2)
+            let (a, b, c, d) = (Self.key("a"), Self.key("b"), Self.key("c"), Self.key("d"))
+            for key in [a, b, c] { try cache.keep(Self.payload, for: key) }
+            #expect(cache.bytes(for: a) == Self.payload)
+            try cache.keep(Self.payload, for: d)
+            #expect(try Self.names(directory) == Set([a, c, d].map { $0.hex + ".entry" }))
+            #expect(cache.bytes(for: b) == nil)
+            let unlimited = File.Cache(directory)
+            for index in 0..<4 { try unlimited.keep(Self.payload, for: Self.key("more \(index)")) }
+            #expect(try Self.names(directory).count == 7)
+        }
+    }
 }
