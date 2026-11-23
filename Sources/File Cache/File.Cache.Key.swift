@@ -3,9 +3,9 @@ public import FIPS_180_4_Digest
 extension File.Cache {
     /// What names an entry: a digest of whatever decides the bytes kept under it.
     public struct Key: Sendable, Hashable {
-        public let digest: FIPS_180_4.Digest
+        public let digest: NIST.FIPS.`180`.`4`.Digest
 
-        public init(digest: FIPS_180_4.Digest) {
+        public init(digest: NIST.FIPS.`180`.`4`.Digest) {
             self.digest = digest
         }
     }

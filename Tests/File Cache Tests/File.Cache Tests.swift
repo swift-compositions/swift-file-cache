@@ -9,7 +9,7 @@ import Testing
     static let temporary = File.Directory.Temporary.Scope(prefix: "file-cache-tests")
 
     static func key(_ text: Swift.String) -> File.Cache.Key {
-        File.Cache.Key(digest: FIPS_180_4.SHA256.digest(Array(text.utf8).map(Byte.init(bitPattern:))))
+        File.Cache.Key(digest: NIST.FIPS.`180`.`4`.SHA256.digest(Array(text.utf8).map(Byte.init(bitPattern:))))
     }
 
     static let payload: [Byte] = (0..<100_000).map { Byte(bitPattern: UInt8(truncatingIfNeeded: $0 &* 7)) }
@@ -65,7 +65,7 @@ import Testing
     @Test func `a key of a digest of another length keeps its whole digest`() throws {
         try Self.temporary { directory in
             let cache = File.Cache(directory)
-            let key = File.Cache.Key(digest: FIPS_180_4.SHA1.digest(Self.payload))
+            let key = File.Cache.Key(digest: NIST.FIPS.`180`.`4`.SHA1.digest(Self.payload))
             try cache.keep(Self.payload, for: key)
             #expect(cache.bytes(for: key) == Self.payload)
             #expect(File.Cache.header(key) == 52)
