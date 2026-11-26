@@ -41,6 +41,11 @@ extension File.Cache.Ledger {
         }
     }
 
+    /// The bytes the entries are known to hold, 0 before they are first counted.
+    var held: Int {
+        count.withLock { $0.held ?? 0 }
+    }
+
     /// The bytes the entries hold after a count claimed by `kept(_:within:)`.
     func trimmed(_ left: Int) {
         count.withLock { count in

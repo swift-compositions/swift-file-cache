@@ -12,14 +12,14 @@ extension File {
         /// Where the entries are kept; made when the first is kept.
         public let directory: File.Directory
 
-        /// The most bytes the entries' files may hold together before the least recently used are removed, or nil
-        /// to remove none.
-        public let limit: Int?
+        /// How much the entries' files may hold together before the least recently used are removed, or nil to
+        /// remove none.
+        public let limit: Limit?
 
         /// What this value and its copies know of the bytes the entries hold.
         let ledger: Ledger
 
-        public init(_ directory: File.Directory, limit: Int? = nil) {
+        public init(_ directory: File.Directory, limit: Limit? = nil) {
             self.directory = directory
             self.limit = limit
             self.ledger = Ledger()
@@ -57,7 +57,7 @@ extension File.Cache {
         } catch {
             throw .write(error)
         }
-        if let limit, ledger.kept(entry.count, within: limit) { ledger.trimmed(trimmed(to: limit)) }
+        if let limit = bound(), ledger.kept(entry.count, within: limit) { ledger.trimmed(trimmed(to: limit)) }
     }
 
     /// The entry's file: its key in hex, then `.entry`.
@@ -175,8 +175,37 @@ extension File.Cache {
             case .right(let failed): throw failed
             }
         }
-        guard let limit, ledger.kept(count, within: limit) else { return }
+        guard let limit = bound(), ledger.kept(count, within: limit) else { return }
         let left = (try? await pool.run { [self] in trimmed(to: limit) }) ?? 0
         ledger.trimmed(left)
     }
 }
+
+extension File.Cache {
+    /// The bytes the entries may hold now: the limit's bytes, or for `leaving`, what the entries are known to hold
+    /// plus what the disk has free, less the bytes to leave; nil for no limit, or a disk whose free space cannot be
+    /// read.
+    func bound() -> Int? {
+        switch limit {
+        case nil:
+            return nil
+
+        case .bytes(let bytes):
+            return bytes
+
+        case .leaving(let reserve):
+            #if os(Windows)
+                return nil
+            #else
+                let free: UInt64
+                do throws(Kernel.File.System.Stats.Error) {
+                    free = try directory.stat.available
+                } catch {
+                    return nil
+                }
+                return Swift.max(ledger.held + Int(clamping: free) - reserve, 0)
+            #endif
+        }
+    }
+}
+

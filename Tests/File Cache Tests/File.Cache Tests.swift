@@ -144,7 +144,7 @@ import Thread_Pool
     @Test func `past its limit a cache removes the least recently kept or read entries, down to nine tenths of it`() throws {
         try Self.temporary { directory in
             let entry = Self.payload.count + 64
-            let cache = File.Cache(directory, limit: entry * 7 / 2)
+            let cache = File.Cache(directory, limit: .bytes(entry * 7 / 2))
             let (a, b, c, d) = (Self.key("a"), Self.key("b"), Self.key("c"), Self.key("d"))
             for key in [a, b, c] { try cache.keep(Self.payload, for: key) }
             #expect(cache.bytes(for: a) == Self.payload)
@@ -157,12 +157,23 @@ import Thread_Pool
         }
     }
 
+    @Test func `a cache that must leave more free than the disk has keeps nothing, and one that leaves nothing keeps all`() throws {
+        try Self.temporary { directory in
+            let greedy = File.Cache(directory, limit: .leaving(0))
+            for index in 0..<3 { try greedy.keep(Self.payload, for: Self.key("kept \(index)")) }
+            #expect(try Self.names(directory).count == 3)
+            let modest = File.Cache(directory, limit: .leaving(.max))
+            try modest.keep(Self.payload, for: Self.key("gone"))
+            #expect(try Self.names(directory).isEmpty)
+        }
+    }
+
     @Test func `the forms on a thread pool keep and read back what the others do, and trim past the limit`() async throws {
         try await Self.temporary { directory in
             let pool = Kernel.Thread.Pool()
             defer { pool.shutdown() }
             let entry = Self.payload.count + 64
-            let cache = File.Cache(File.Directory(directory.path / "deep"), limit: entry * 7 / 2)
+            let cache = File.Cache(File.Directory(directory.path / "deep"), limit: .bytes(entry * 7 / 2))
             let (a, b, c, d) = (Self.key("a"), Self.key("b"), Self.key("c"), Self.key("d"))
             #expect(await cache.bytes(for: a, on: pool) == nil)
             for key in [a, b, c] { try await cache.keep(Self.payload, for: key, on: pool) }
