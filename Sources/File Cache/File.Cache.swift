@@ -2,6 +2,7 @@ public import Byte
 import FIPS_180_4_Digest
 public import File_System
 import RFC_1950
+public import Thread_Pool
 
 extension File {
     /// Bytes kept in a directory under keys, one file an entry, to be read back by a later run instead of being
@@ -56,7 +57,7 @@ extension File.Cache {
         } catch {
             throw .write(error)
         }
-        if let limit { ledger.kept(entry.count, within: limit, in: self) }
+        if let limit, ledger.kept(entry.count, within: limit) { ledger.trimmed(trimmed(to: limit)) }
     }
 
     /// The entry's file: its key in hex, then `.entry`.
@@ -123,5 +124,59 @@ extension File.Cache {
         let payload = Array(entry[header...])
         guard number(entry, at: 24 + digest.count) == UInt64(IETF.RFC.`1950`.Adler32.checksum(payload)) else { return nil }
         return payload
+    }
+}
+
+extension File.Cache {
+    /// `bytes(for:)`, with the file read on a thread of `pool`, so that no thread of the cooperative pool waits for
+    /// the disk; nil also when the pool cannot take the read.
+    public func bytes(for key: Key, on pool: Kernel.Thread.Pool) async -> [Byte]? {
+        guard let file = file(for: key) else { return nil }
+        let entry: [Byte]?
+        do throws(Kernel.Thread.Pool.Error) {
+            entry = try await pool.run { () -> [Byte]? in
+                do throws(File.System.Read.Full.Error) {
+                    return try file.read.bytes()
+                } catch {
+                    return nil
+                }
+            }
+        } catch {
+            return nil
+        }
+        guard let entry, let payload = Self.payload(entry, key: key) else { return nil }
+        _ = try? await pool.run { Self.used(file) }
+        return payload
+    }
+
+    /// `keep(_:for:)`, with the directory made, the entry written and, past the limit, the entries counted and
+    /// removed on threads of `pool`; the entry itself is made by the caller.
+    public func keep(_ bytes: [Byte], for key: Key, on pool: Kernel.Thread.Pool) async throws(Error) {
+        guard let file = file(for: key) else { return }
+        let entry = Self.entry(bytes, key: key)
+        let count = entry.count
+        let directory = directory
+        do throws(Either<Kernel.Thread.Pool.Error, Error>) {
+            try await pool.run { () throws(Error) in
+                do throws(File.System.Create.Directory.Error) {
+                    try directory.create.recursive()
+                } catch {
+                    throw .directory(error)
+                }
+                do throws(File.System.Write.Atomic.Error) {
+                    try file.write.atomic(entry.span, options: .init(durability: .none))
+                } catch {
+                    throw .write(error)
+                }
+            }
+        } catch {
+            switch error {
+            case .left(let refused): throw .pool(refused)
+            case .right(let failed): throw failed
+            }
+        }
+        guard let limit, ledger.kept(count, within: limit) else { return }
+        let left = (try? await pool.run { [self] in trimmed(to: limit) }) ?? 0
+        ledger.trimmed(left)
     }
 }

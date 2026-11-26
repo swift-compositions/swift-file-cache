@@ -1,4 +1,5 @@
 public import File_System
+public import Thread_Pool
 
 extension File.Cache {
     /// Why bytes were not kept.
@@ -8,5 +9,8 @@ extension File.Cache {
 
         /// The entry could not be written.
         case write(File.System.Write.Atomic.Error)
+
+        /// The thread pool did not take the work: shut down, full, timed out or cancelled.
+        case pool(Kernel.Thread.Pool.Error)
     }
 }

@@ -2,6 +2,7 @@ import Byte
 import FIPS_180_4
 import File_System_Test_Support
 import Testing
+import Thread_Pool
 
 @testable import File_Cache
 
@@ -153,6 +154,23 @@ import Testing
             let unlimited = File.Cache(directory)
             for index in 0..<4 { try unlimited.keep(Self.payload, for: Self.key("more \(index)")) }
             #expect(try Self.names(directory).count == 7)
+        }
+    }
+
+    @Test func `the forms on a thread pool keep and read back what the others do, and trim past the limit`() async throws {
+        try await Self.temporary { directory in
+            let pool = Kernel.Thread.Pool()
+            defer { pool.shutdown() }
+            let entry = Self.payload.count + 64
+            let cache = File.Cache(File.Directory(directory.path / "deep"), limit: entry * 7 / 2)
+            let (a, b, c, d) = (Self.key("a"), Self.key("b"), Self.key("c"), Self.key("d"))
+            #expect(await cache.bytes(for: a, on: pool) == nil)
+            for key in [a, b, c] { try await cache.keep(Self.payload, for: key, on: pool) }
+            #expect(cache.bytes(for: b) == Self.payload)
+            #expect(await cache.bytes(for: a, on: pool) == Self.payload)
+            try await cache.keep(Self.payload, for: d, on: pool)
+            #expect(await cache.bytes(for: c, on: pool) == nil)
+            #expect(try Self.names(File.Directory(directory.path / "deep")) == Set([a, b, d].map { $0.hex + ".entry" }))
         }
     }
 }
