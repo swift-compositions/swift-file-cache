@@ -13,6 +13,7 @@ let package = Package(
         .package(url: "https://github.com/swift-iso/swift-iso-9945.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-lock.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-threads.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-environment.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -24,6 +25,8 @@ let package = Package(
                 .product(name: "RFC 1950", package: "swift-rfc-1950"),
                 .product(name: "Lock", package: "swift-lock"),
                 .product(name: "Thread Pool", package: "swift-threads"),
+                .product(name: "Environment Core", package: "swift-environment"),
+                .product(name: "Environment", package: "swift-environment"),
                 .product(
                     name: "ISO 9945 Kernel Time",
                     package: "swift-iso-9945",
@@ -39,6 +42,8 @@ let package = Package(
                 .product(name: "FIPS 180-4", package: "swift-fips-180-4"),
                 .product(name: "File System Test Support", package: "swift-file-system"),
                 .product(name: "Thread Pool", package: "swift-threads"),
+                .product(name: "Environment Core", package: "swift-environment"),
+                .product(name: "Environment", package: "swift-environment"),
             ]
         ),
     ],
